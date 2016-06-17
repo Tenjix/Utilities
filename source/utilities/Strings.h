@@ -3,7 +3,7 @@
 #include <codecvt>
 #include <sstream>
 
-#include <Utilities/Standard.h>
+#include <utilities/Standard.h>
 
 using StringConverter = std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>;
 

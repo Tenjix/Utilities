@@ -5,7 +5,7 @@
 #include <typeindex>
 #include <unordered_set>
 
-#include <Utilities/Standard.h>
+#include <utilities/Standard.h>
 
 // variadic iteration macro
 #define for_each_variadic(expression) auto list = { 0, (static_cast<void>(expression), 0) ... }

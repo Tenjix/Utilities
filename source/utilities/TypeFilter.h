@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include <Utilities/Types.h>
+#include <utilities/Types.h>
 
 // Type Filter
 struct TypeFilter {

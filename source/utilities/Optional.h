@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include <Utilities/Assertions.h>
+#include <utilities/Assertions.h>
 
 template <typename Type>
 class Optional {

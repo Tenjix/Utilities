@@ -2,8 +2,8 @@
 
 #include <exception>
 
-#include <Utilities/Logging.h>
-#include <Utilities/Strings.h>
+#include <utilities/Logging.h>
+#include <utilities/Strings.h>
 
 #define throw_exception(...) { error(__VA_ARGS__); throw RuntimeException(__VA_ARGS__); }
 
