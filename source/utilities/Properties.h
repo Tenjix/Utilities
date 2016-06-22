@@ -36,12 +36,12 @@ template <class Type, class Object>
 class Property {
 
 	Type data;
-	Object* object;
+	Object* object = nullptr;
 
 public:
 
-	Property(const Type& value) : data(value), object(nullptr) {}
-	Property(Type&& value) : data(std::move(value)), object(nullptr) {}
+	Property(const Type& value) : data(value) {}
+	Property(Type&& value) : data(std::move(value)) {}
 	Property(Object* owner_object = nullptr) : data(), object(owner_object) {}
 
 	Property(const Property&) = delete;
@@ -132,12 +132,13 @@ template <class Type, class Object>
 class SharedPointerProperty {
 
 	shared<Type> pointer;
-	Object* object;
+	Object* object = nullptr;
 
 public:
 
+	SharedPointerProperty(const shared<Type>& value) : pointer(value) {}
+	SharedPointerProperty(shared<Type>&& value) : pointer(std::move(value)) {}
 	SharedPointerProperty(Object* owner_object = nullptr) : object(owner_object) {}
-	SharedPointerProperty(Type* pointer) : pointer(pointer) {}
 
 	SharedPointerProperty(const SharedPointerProperty&) = delete;
 	SharedPointerProperty(SharedPointerProperty&&) = delete;
@@ -201,6 +202,11 @@ public:
 	}
 	bool operator!=(const shared<Type>& value) const {
 		return not operator==(value);
+	}
+
+	// conversions
+	explicit operator bool() const {
+		return pointer.get() != nullptr;
 	}
 
 	// might be useful for template deductions
