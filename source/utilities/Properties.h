@@ -3,6 +3,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include <utilities/Assertions.h>
@@ -29,11 +30,18 @@ public:
 
 };
 
+namespace base {
+
+	class ReadableProperty {};
+	class WritableProperty {};
+
+}
+
 // a read-write property with data store and automatically generated get/set functions
 // this is what C++/CLI calls a trivial scalar property
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(pointer_to_string)")
 template <class Type, class Object>
-class Property {
+class Property : base::ReadableProperty, base::WritableProperty {
 
 	Type data;
 	Object* object = nullptr;
@@ -119,17 +127,12 @@ public:
 
 };
 
-template <class Type, class Object>
-std::ostream& operator<<(std::ostream& output, const Property<Type, Object> simple_property) {
-	return (output << simple_property.get());
-}
-
 // a read-write shared pointer property
 // usage:
 // SharedProperty<std::string, OwnerClass> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object>
-class SharedPointerProperty {
+class SharedPointerProperty : base::ReadableProperty, base::WritableProperty {
 
 	shared<Type> pointer;
 	Object* object = nullptr;
@@ -214,18 +217,12 @@ public:
 
 };
 
-template <class Type, class Object>
-std::ostream& operator<<(std::ostream& output, const SharedPointerProperty<Type, Object> shared_pointer_property) {
-	if (shared_pointer_property == nullptr) return (output << "nullptr");
-	return (output << *shared_pointer_property);
-}
-
 // a read-only pointer property
 // usage:
 // ReadonlyPointerProperty<std::string> name;
 // (has to be initialized with an pointer, for example in constructor using "name._property_initialize(pointer_to_string)")
 template <typename Type>
-class ReadonlyPointerProperty {
+class ReadonlyPointerProperty : base::ReadableProperty {
 
 	Type* pointer;
 
@@ -288,18 +285,12 @@ public:
 
 };
 
-template <class Type>
-std::ostream& operator<<(std::ostream& output, const ReadonlyPointerProperty<Type> readonly_pointer_property) {
-	if (readonly_pointer_property == nullptr) return (output << "nullptr");
-	return (output << *readonly_pointer_property);
-}
-
 // a read-only property calling a user-defined getter, returning by value
 // usage:
 // ReadonlyValueProperty<std::string, OwnerClass, &OwnerClass::get_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object, Type(Object::*real_getter)() const>
-class ReadonlyValueProperty {
+class ReadonlyValueProperty : base::ReadableProperty {
 
 	Object* object;
 
@@ -348,17 +339,12 @@ public:
 
 };
 
-template <class Type, class Object, Type(Object::*real_getter)() const>
-std::ostream& operator<<(std::ostream& output, const ReadonlyValueProperty<Type, Object, real_getter> readonly_property) {
-	return (output << readonly_property.get());
-}
-
 // a write-only property calling a user-defined setter, passing by value
 // usage:
 // WriteonlyValueProperty<std::string, OwnerClass, &OwnerClass::set_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object, void(Object::*real_setter)(Type)>
-class WriteonlyValueProperty {
+class WriteonlyValueProperty : base::WritableProperty {
 
 	Object* object;
 
@@ -399,17 +385,12 @@ public:
 
 };
 
-template <class Type, class Object, Type(Object::*real_setter)(Type)>
-std::ostream& operator<<(std::ostream& output, const WriteonlyValueProperty<Type, Object, real_setter> writeonly_property) {
-	return (output << writeonly_property.get());
-}
-
 // a read-write property that invokes user-defined functions, returning and passing by value
 // usage:
 // UnrestrictedValueProperty<std::string, OwnerClass, &OwnerClass::get_name, &OwnerClass::set_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object, Type(Object::*real_getter)() const, Type(Object::*real_setter)(Type)>
-class UnrestrictedValueProperty {
+class UnrestrictedValueProperty : base::ReadableProperty, base::WritableProperty {
 
 	Object* object;
 
@@ -467,17 +448,12 @@ public:
 
 };
 
-template <class Type, class Object, Type(Object::*real_getter)() const, Type(Object::*real_setter)(Type)>
-std::ostream& operator<<(std::ostream& output, const UnrestrictedValueProperty<Type, Object, real_getter, real_setter> unrestricted_property) {
-	return (output << unrestricted_property.get());
-}
-
 // a read-only property calling a user-defined getter, returning by reference and passing by perfect-forwarding
 // usage:
 // ReadonlyReferenceProperty<std::string, OwnerClass, &OwnerClass::get_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <typename Type, typename Object, const Type&(Object::*real_getter)() const>
-class ReadonlyReferenceProperty {
+class ReadonlyReferenceProperty : base::ReadableProperty {
 
 	Object* object;
 
@@ -526,17 +502,12 @@ public:
 
 };
 
-template <class Type, class Object, const Type&(Object::*real_getter)() const>
-std::ostream& operator<<(std::ostream& output, const ReadonlyReferenceProperty<Type, Object, real_getter> readonly_property) {
-	return (output << readonly_property.get());
-}
-
 // a write-only property calling a user-defined setter, passing by perfect-forwarding
 // usage:
 // WriteonlyReferenceProperty<std::string, OwnerClass, &OwnerClass::set_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object, void(Object::*real_setter)(Assignment<Type>)>
-class WriteonlyReferenceProperty {
+class WriteonlyReferenceProperty : base::WritableProperty {
 
 	Object* object;
 
@@ -586,17 +557,12 @@ public:
 
 };
 
-template <class Type, class Object, void(Object::*real_setter)(Assignment<Type>)>
-std::ostream& operator<<(std::ostream& output, const WriteonlyReferenceProperty<Type, Object, real_setter> writeonly_property) {
-	return (output << writeonly_property.get());
-}
-
 // a read-write property that invokes user-defined functions, returning by reference and passing by perfect-forwarding
 // usage:
 // UnrestrictedReferenceProperty<std::string, OwnerClass, &OwnerClass::get_name, &OwnerClass::set_name> name;
 // (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
 template <class Type, class Object, const Type&(Object::*real_getter)() const, const Type&(Object::*real_setter)(Assignment<Type>)>
-class UnrestrictedReferenceProperty {
+class UnrestrictedReferenceProperty : base::ReadableProperty, base::WritableProperty {
 
 	Object* object;
 
@@ -663,7 +629,32 @@ public:
 
 };
 
-template <class Type, class Object, const Type&(Object::*real_getter)() const, const Type&(Object::*real_setter)(Assignment<Type>)>
-std::ostream& operator<<(std::ostream& output, const UnrestrictedReferenceProperty<Type, Object, real_getter, real_setter> unrestricted_property) {
-	return (output << unrestricted_property.get());
+// output stream operator<<
+template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+std::ostream& operator<<(std::ostream& output, const PropertyType& property) {
+	return output << property.get();
+}
+
+// string concatenation (string + property)
+template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+std::string operator+(const std::string& text, const PropertyType& property) {
+	return text + to_string(property.get());
+}
+
+// string concatenation (property + string)
+template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+std::string operator+(const PropertyType& property, const std::string& text) {
+	return to_string(property.get()) + text;
+}
+
+// string concatenation (characters + property)
+template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+std::string operator+(const char* text, const PropertyType& property) {
+	return string(text) + to_string(property.get());
+}
+
+// string concatenation (property + characters)
+template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+std::string operator+(const PropertyType& property, const char* text) {
+	return to_string(property.get()) + string(text);
 }
