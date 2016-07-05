@@ -7,9 +7,6 @@
 
 #include <utilities/Standard.h>
 
-// variadic iteration macro
-#define for_each_variadic(expression) auto list = { 0, (static_cast<void>(expression), 0) ... }
-
 class Type {
 
 	const type_info& info;

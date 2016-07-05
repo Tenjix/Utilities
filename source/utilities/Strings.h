@@ -11,7 +11,21 @@ using StringConverter = std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>;
 template <typename... Arguments>
 String stringify(const Arguments&... arguments) {
 	std::ostringstream stream;
-	auto list = { 0, (static_cast<void>(stream << arguments), 0) ... };
+	for_each_variadic(stream << arguments);
+	return stream.str();
+}
+
+// converts arithmetic types to string using std::to_string
+template <class Type, typename std::enable_if<std::is_arithmetic<Type>::value>::type* = nullptr>
+String to_string(const Type& value) {
+	return std::to_string(value);
+}
+
+// converts non-arithmetic types to string using stringstream
+template <class Type, typename std::enable_if<not std::is_arithmetic<Type>::value>::type* = nullptr>
+String to_string(const Type& value) {
+	std::ostringstream stream;
+	stream << value;
 	return stream.str();
 }
 
