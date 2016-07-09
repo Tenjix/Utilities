@@ -30,7 +30,7 @@
 #endif
 
 template <typename... Arguments>
-void _print(std::ostream& stream, const char* file, const int line, const char* function, const Arguments&... arguments) {
+inline void _print(std::ostream& stream, const char* file, const int line, const char* function, const Arguments&... arguments) {
 #ifdef _LOGGING_DETAILED
 	stream << file << "(" << line << "):" << function << "() : ";
 #endif
