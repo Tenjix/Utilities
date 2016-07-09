@@ -7,13 +7,11 @@
 #include <utility>
 
 #include <utilities/Assertions.h>
+#include <utilities/Logging.h>
 
-/// Utility templates for emulating properties
-
-/// Each property has three sets of redundant accessors:
-/// 1. function call syntax
-/// 2. get() and set() functions
-/// 3. overloaded operator =
+// ==================================================================================================
+// Assignment using type-erasure
+// ==================================================================================================
 
 template<class Type>
 class Assignment {
@@ -30,91 +28,139 @@ public:
 
 };
 
-namespace base {
+// ==================================================================================================
+// Property base classes
+// ==================================================================================================
 
-	class ReadableProperty {};
-	class WritableProperty {};
+namespace {
+
+	// readable property tag for common functions
+	class Readable {};
+
+	// writable property tag for common functions
+	class Writable {};
+
+	// property owner reference
+	template <class Owner>
+	class PropertyOwner {
+
+		friend Owner;
+
+		Owner* pointer = nullptr;
+
+		void operator=(Owner* owner) {
+			pointer = owner;
+		}
+
+	public:
+
+		operator const Owner*() const {
+			runtime_assert(pointer != nullptr, "property owner hasn't been specified");
+			return pointer;
+		}
+		operator Owner*() {
+			runtime_assert(pointer != nullptr, "property owner hasn't been specified");
+			return pointer;
+		}
+
+		operator const Owner&() const {
+			runtime_assert(pointer != nullptr, "property owner hasn't been specified");
+			return *pointer;
+		}
+		operator Owner&() {
+			runtime_assert(pointer != nullptr, "property owner hasn't been specified");
+			return *pointer;
+		}
+
+	};
+
+	// property base containing owner reference
+	template <class Type, class Owner>
+	class BaseProperty {
+
+	public:
+
+		PropertyOwner<Owner> owner;
+
+		typedef Owner owner_type;
+		typedef Type value_type;
+
+	};
+
+	// property base containing owner reference and data storage
+	template <class Type, class Owner>
+	class DataProperty : public BaseProperty<Type, Owner> {
+
+	protected:
+
+		Type value;
+
+	public:
+
+		DataProperty() : value() {}
+
+		DataProperty(const Type& value) : value(value) {}
+		DataProperty(Type&& value) : value(std::move(value)) {}
+
+		DataProperty(const DataProperty& other) : value(other.value) {}
+		DataProperty(DataProperty&& other) : value(std::move(other.value)) {}
+
+		DataProperty& operator=(const DataProperty& other) { value = other.value; return *this; }
+		DataProperty& operator=(DataProperty&& other) { value = std::move(other.value); return *this; }
+
+	};
 
 }
 
-// a read-write property with data store and automatically generated get/set functions
-// this is what C++/CLI calls a trivial scalar property
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(pointer_to_string)")
-template <class Type, class Object>
-class Property : base::ReadableProperty, base::WritableProperty {
+// ==================================================================================================
+// Properties with value storage
+// ==================================================================================================
 
-	Type data;
-	Object* object = nullptr;
+// a read-only property with value storage and various getter functions
+// usage:
+// in public section of some class (e.g. "Entity"): "ReadonlyProperty<std::string, Entity> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner>
+class ReadonlyProperty : Readable, public virtual DataProperty<Type, Owner> {
 
 public:
 
-	Property(const Type& value) : data(value) {}
-	Property(Type&& value) : data(std::move(value)) {}
-	Property(Object* owner_object = nullptr) : data(), object(owner_object) {}
+	ReadonlyProperty() : DataProperty<Type, Owner>() {}
 
-	Property(const Property&) = delete;
-	Property(Property&&) = delete;
+	explicit ReadonlyProperty(const Type& value) : DataProperty<Type, Owner>(value) {}
+	explicit ReadonlyProperty(Type&& value) : DataProperty<Type, Owner>(std::move(value)) {}
 
-	Property& operator=(const Property&) = delete;
-	Property& operator=(Property&&) = delete;
+	ReadonlyProperty(const ReadonlyProperty& other) : ReadonlyProperty(other.value) {}
+	ReadonlyProperty(ReadonlyProperty&& other) : ReadonlyProperty(std::move(other.value)) {}
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
-	}
+	ReadonlyProperty& operator=(const ReadonlyProperty& other) { value = other.value; return *this; }
+	ReadonlyProperty& operator=(ReadonlyProperty&& other) { value = std::move(other.value); return *this; }
 
 	// access with function call syntax
 	const Type& operator()() const {
-		return data;
+		return value;
 	}
-	Object& operator()(const Type& value) {
-		data = value;
-		return *object;
-	}
-	Object& operator()(Type&& value) {
-		data = std::move(value);
-		return *object;
+	Type& operator()() {
+		return value;
 	}
 
 	// access with get()/set() syntax
 	const Type& get() const {
-		return data;
+		return value;
 	}
-	const Type& set(const Type& value) {
-		return data = value;
-	}
-	const Type& set(Type&& value) {
-		return data = std::move(value);
+	Type& get() {
+		return value;
 	}
 
-	// access with '=' sign
+	// conversion
 	operator const Type&() const {
-		return data;
+		return value;
 	}
-	const Type& operator=(const Type& value) {
-		return data = value;
-	}
-	const Type& operator=(Type&& value) {
-		return data = std::move(value);
+	operator Type&() {
+		return value;
 	}
 
-	// additional operations
-	const Type& operator+=(const Type& value) {
-		return data += value;
-	}
-	const Type& operator-=(const Type& value) {
-		return data -= value;
-	}
-	const Type& operator*=(const Type& value) {
-		return data *= value;
-	}
-	const Type& operator/=(const Type& value) {
-		return data /= value;
-	}
-
-	// comparators
+	// comparation
 	bool operator==(const Type& value) const {
 		return get() == value;
 	}
@@ -122,374 +168,428 @@ public:
 		return not operator==(value);
 	}
 
-	// might be useful for template deductions
-	typedef Type type;
+	// member access using "->" until "." can be overloaded
+	const Type* operator->() const {
+		return &value;
+	}
+	Type* operator->() {
+		return &value;
+	}
 
 };
 
-// a read-write shared pointer property
+// a write-only property with value storage and various setter functions
 // usage:
-// SharedProperty<std::string, OwnerClass> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object>
-class SharedPointerProperty : base::ReadableProperty, base::WritableProperty {
-
-	shared<Type> pointer;
-	Object* object = nullptr;
+// in public section of some class (e.g. "Entity"): "WriteonlyProperty<std::string, Entity> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner>
+class WriteonlyProperty : Writable, public virtual DataProperty<Type, Owner> {
 
 public:
 
-	SharedPointerProperty(const shared<Type>& value) : pointer(value) {}
-	SharedPointerProperty(shared<Type>&& value) : pointer(std::move(value)) {}
-	SharedPointerProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	WriteonlyProperty() : DataProperty<Type, Owner>() {}
 
-	SharedPointerProperty(const SharedPointerProperty&) = delete;
-	SharedPointerProperty(SharedPointerProperty&&) = delete;
+	explicit WriteonlyProperty(const Type& value) : DataProperty<Type, Owner>(value) {}
+	explicit WriteonlyProperty(Type&& value) : DataProperty<Type, Owner>(std::move(value)) {}
 
-	SharedPointerProperty& operator=(const SharedPointerProperty&) = delete;
-	SharedPointerProperty& operator=(SharedPointerProperty&&) = delete;
+	WriteonlyProperty(const WriteonlyProperty& other) : WriteonlyProperty(other.value) {}
+	WriteonlyProperty(WriteonlyProperty&& other) : WriteonlyProperty(std::move(other.value)) {}
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
+	WriteonlyProperty& operator=(const WriteonlyProperty& other) { value = other.value; return *this; }
+	WriteonlyProperty& operator=(WriteonlyProperty&& other) { value = std::move(other.value); return *this; }
+
+	// access with function call syntax
+	Owner& operator()(const Type& value) {
+		this->value = value;
+		return owner;
 	}
-
-	// function call syntax
-	const shared<Type>& operator()() const {
-		return pointer;
-	}
-	Object& operator()(const shared<Type>& value) {
-		pointer = value;
-		return *object;
-	}
-	Object& operator()(shared<Type>&& value) {
-		pointer = std::move(value);
-		return *object;
+	Owner& operator()(Type&& value) {
+		this->value = std::move(value);
+		return owner;
 	}
 
-	// get/set syntax
-	const shared<Type>& get() const {
-		return pointer;
+	// access with get()/set() syntax
+	void set(const Type& value) {
+		this->value = value;
 	}
-	const shared<Type>& set(const shared<Type>& value) {
-		return pointer = value;
-	}
-	const shared<Type>& set(shared<Type>&& value) {
-		return pointer = std::move(value);
+	void set(Type&& value) {
+		this->value = std::move(value);
 	}
 
-	// access with '=' sign
-	operator const shared<Type>&() const {
-		return pointer;
+	// assignment
+	void operator=(const Type& value) {
+		this->value = value;
 	}
-	const shared<Type>& operator=(const shared<Type>& value) {
-		return pointer = value;
-	}
-	const shared<Type>& operator=(shared<Type>&& value) {
-		return pointer = std::move(value);
+	void operator=(Type&& value) {
+		this->value = std::move(value);
 	}
 
-	// access using pointer syntax
-	Type* operator->() const {
-		return pointer.get();
+	// manipulation
+	void operator+=(const Type& value) {
+		this->value += value;
 	}
-	Type& operator*() const {
-		return *pointer;
+	void operator-=(const Type& value) {
+		this->value -= value;
 	}
-
-	// comparators
-	bool operator==(const shared<Type>& value) const {
-		return get() == value;
+	void operator*=(const Type& value) {
+		this->value *= value;
 	}
-	bool operator!=(const shared<Type>& value) const {
-		return not operator==(value);
+	void operator/=(const Type& value) {
+		this->value /= value;
 	}
-
-	// conversions
-	explicit operator bool() const {
-		return pointer.get() != nullptr;
-	}
-
-	// might be useful for template deductions
-	typedef Type type;
 
 };
 
-// a read-only pointer property
+// a read-write property with value storage and various accessor functions
 // usage:
-// ReadonlyPointerProperty<std::string> name;
-// (has to be initialized with an pointer, for example in constructor using "name._property_initialize(pointer_to_string)")
-template <typename Type>
-class ReadonlyPointerProperty : base::ReadableProperty {
+// in public section of some class (e.g. "Entity"): "Property<std::string, Entity> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner>
+class Property : public ReadonlyProperty<Type, Owner>, public WriteonlyProperty<Type, Owner> {
+
+public:
+
+	Property() : DataProperty<Type, Owner>() {}
+
+	explicit Property(const Type& value) : DataProperty<Type, Owner>(value) {}
+	explicit Property(Type&& value) : DataProperty<Type, Owner>(std::move(value)) {}
+
+	Property(const Property& other) : Property(other.value) {}
+	Property(Property&& other) : Property(std::move(other.value)) {}
+
+	Property& operator=(const Property& other) { value = other.value; return *this; }
+	Property& operator=(Property&& other) { value = std::move(other.value); return *this; }
+
+	using ReadonlyProperty<Type, Owner>::operator();
+	using WriteonlyProperty<Type, Owner>::operator();
+
+	// assignment
+	Type& operator=(const Type& value) {
+		return this->value = value;
+	}
+	Type& operator=(Type&& value) {
+		return this->value = std::move(value);
+	}
+
+	// manipulation
+	Type& operator+=(const Type& value) {
+		return this->value += value;
+	}
+	Type& operator-=(const Type& value) {
+		return this->value -= value;
+	}
+	Type& operator*=(const Type& value) {
+		return this->value *= value;
+	}
+	Type& operator/=(const Type& value) {
+		return this->value /= value;
+	}
+
+};
+
+// ==================================================================================================
+// Properties with shared pointer
+// ==================================================================================================
+
+// a read-write property with value storage of a shared pointer and various accessor functions
+// usage:
+// in public section of some class (e.g. "Entity"): "SharedProperty<std::string, Entity> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner>
+class SharedProperty : public Property<shared<Type>, Owner> {
+
+public:
+
+	SharedProperty() : DataProperty<shared<Type>, Owner>() {}
+
+	explicit SharedProperty(const shared<Type>& value) : DataProperty<shared<Type>, Owner>(value) {}
+	explicit SharedProperty(shared<Type>&& value) : DataProperty<shared<Type>, Owner>(std::move(value)) {}
+
+	SharedProperty(const SharedProperty& other) : SharedProperty(other.value) {}
+	SharedProperty(SharedProperty&& other) : SharedProperty(std::move(other.value)) {}
+
+	SharedProperty& operator=(const SharedProperty& other) { value = other.value; return *this; }
+	SharedProperty& operator=(SharedProperty&& other) { value = std::move(other.value); return *this; }
+
+	using Property<shared<Type>, Owner>::operator=;
+
+	// returns address of the shared value
+	const Type* address() const {
+		return value.get();
+	}
+	Type* address() {
+		return value.get();
+	}
+
+	// access using pointer syntax
+	const Type* operator->() const {
+		return value.get();
+	}
+	Type* operator->() {
+		return value.get();
+	}
+	const Type& operator*() const {
+		return *value;
+	}
+	Type& operator*() {
+		return *value;
+	}
+
+	// conversion
+	operator bool() const {
+		return value != nullptr;
+	}
+
+	typedef Type shared_type;
+
+};
+
+// ==================================================================================================
+// Properties with raw pointer
+// ==================================================================================================
+
+// a read-only property with value storage of a raw pointer and various getter functions
+// usage:
+// in public section of some class (e.g. "Entity"): "ReadonlyPointerProperty<std::string, Entity> name;"
+// (has to be initialized with an pointer, usually in the constructor using "name.pointer = &some_persistent_string;")
+template <class Type, class Owner>
+class ReadonlyPointerProperty : Readable {
+
+	friend Owner;
 
 	Type* pointer;
 
 public:
 
-	ReadonlyPointerProperty(Type* pointer = nullptr) : pointer(pointer) {}
+	explicit ReadonlyPointerProperty(Type* pointer = nullptr) : pointer(pointer) {}
 
-	ReadonlyPointerProperty(const ReadonlyPointerProperty&) = delete;
-	ReadonlyPointerProperty(ReadonlyPointerProperty&&) = delete;
-
-	ReadonlyPointerProperty& operator=(const ReadonlyPointerProperty&) = delete;
-	ReadonlyPointerProperty& operator=(ReadonlyPointerProperty&&) = delete;
-
-	// initializer to specify the owner
-	void _property_initialize(Type* pointer) {
-		runtime_assert(this->pointer == nullptr, "property has already been initialized");
-		runtime_assert(pointer != nullptr, "pointer must not be null");
-		this->pointer = pointer;
+	// access with get()/set() syntax
+	const Type* get() const {
+		return pointer;
+	}
+	Type* get() {
+		return pointer;
 	}
 
-	//// function call syntax
-	Type& operator()() const {
-		return *pointer;
+	// conversion
+	operator const Type*() const {
+		return pointer;
 	}
-
-	// get/set syntax
-	Type& get() const {
-		return *pointer;
+	operator Type*() {
+		return pointer;
 	}
-
-	// access with '=' sign
-	operator Type&() const {
-		return *pointer;
+	explicit operator bool() const {
+		return value != nullptr;
 	}
 
 	// access using pointer syntax
-	Type* operator->() const {
+	const Type* operator->() const {
 		return pointer;
 	}
-	Type& operator*() const {
+	Type* operator->() {
+		return pointer;
+	}
+	const Type& operator*() const {
+		return *pointer;
+	}
+	Type& operator*() {
 		return *pointer;
 	}
 
-	// comparators
-	bool operator==(const Type& value) const {
-		return get() == value;
+	// comparation
+	bool operator==(const Type* other) const {
+		return pointer == other;
 	}
-	bool operator!=(const Type& value) const {
-		return not operator==(value);
-	}
-	bool operator==(const Type*const value) const {
-		return pointer == value;
-	}
-	bool operator!=(const Type*const value) const {
-		return not operator==(value);
+	bool operator!=(const Type* other) const {
+		return not operator==(other);
 	}
 
-	// might be useful for template deductions
 	typedef Type type;
 
 };
 
+// ==================================================================================================
+// Properties passing by value
+// ==================================================================================================
+
 // a read-only property calling a user-defined getter, returning by value
 // usage:
-// ReadonlyValueProperty<std::string, OwnerClass, &OwnerClass::get_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object, Type(Object::*real_getter)() const>
-class ReadonlyValueProperty : base::ReadableProperty {
-
-	Object* object;
+// in public section of some class (e.g. "Entity"): "ReadonlyByValueProperty<unsigned, Entity, &Entity::get_id> id;"
+// (has to be initialized with an owner, usually in the constructor using "id.owner = this;")
+template <class Type, class Owner, Type(Owner::*getter)() const>
+class ReadonlyByValueProperty : Readable, public virtual BaseProperty<Type, Owner> {
 
 public:
 
-	ReadonlyValueProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	ReadonlyByValueProperty() : BaseProperty<Type, Owner>() {}
 
-	ReadonlyValueProperty(const ReadonlyValueProperty&) = delete;
-	ReadonlyValueProperty(ReadonlyValueProperty&&) = delete;
+	ReadonlyByValueProperty(const ReadonlyByValueProperty& other) {}
+	ReadonlyByValueProperty(ReadonlyByValueProperty&& other) {}
 
-	ReadonlyValueProperty& operator=(const ReadonlyValueProperty&) = delete;
-	ReadonlyValueProperty& operator=(ReadonlyValueProperty&&) = delete;
+	ReadonlyByValueProperty& operator=(const ReadonlyByValueProperty& other) { return *this; }
+	ReadonlyByValueProperty& operator=(ReadonlyByValueProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
+	// access with function call syntax
+	const Type operator()() const {
+		return (owner->*getter)();
+	}
+	Type operator()() {
+		return (owner->*getter)();
 	}
 
-	// function call syntax
-	Type operator()() const {
-		return (object->*real_getter)();
+	// access with get()/set() syntax
+	const Type get() const {
+		return (owner->*getter)();
+	}
+	Type get() {
+		return (owner->*getter)();
 	}
 
-	// get/set syntax
-	Type get() const {
-		return (object->*real_getter)();
+	// conversion
+	operator const Type() const {
+		return (owner->*getter)();
+	}
+	operator Type() {
+		return (owner->*getter)();
 	}
 
-	// access with '=' sign
-	operator Type() const {
-		return (object->*real_getter)();
+	// comparation
+	bool operator==(const Type& value) const {
+		return (owner->*getter)() == value;
 	}
-
-	// comparators
-	bool operator==(Type value) const {
-		return get() == value;
-	}
-	bool operator!=(Type value) const {
+	bool operator!=(const Type& value) const {
 		return not operator==(value);
 	}
-
-	// might be useful for template deductions
-	typedef Type type;
 
 };
 
 // a write-only property calling a user-defined setter, passing by value
 // usage:
-// WriteonlyValueProperty<std::string, OwnerClass, &OwnerClass::set_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object, void(Object::*real_setter)(Type)>
-class WriteonlyValueProperty : base::WritableProperty {
-
-	Object* object;
+// in public section of some class (e.g. "Entity"): "WriteonlyByValueProperty<unsigned, Entity, &Entity::set_id> id;"
+// (has to be initialized with an owner, usually in the constructor using "id.owner = this;")
+template <class Type, class Owner, void(Owner::*setter)(Type)>
+class WriteonlyByValueProperty : Writable, public virtual BaseProperty<Type, Owner> {
 
 public:
 
-	WriteonlyValueProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	WriteonlyByValueProperty() : BaseProperty<Type, Owner>() {}
 
-	WriteonlyValueProperty(const WriteonlyValueProperty&) = delete;
-	WriteonlyValueProperty(WriteonlyValueProperty&&) = delete;
+	WriteonlyByValueProperty(const WriteonlyByValueProperty& other) {}
+	WriteonlyByValueProperty(WriteonlyByValueProperty&& other) {}
 
-	WriteonlyValueProperty& operator=(const WriteonlyValueProperty&) = delete;
-	WriteonlyValueProperty& operator=(WriteonlyValueProperty&&) = delete;
+	WriteonlyByValueProperty& operator=(const WriteonlyByValueProperty& other) { return *this; }
+	WriteonlyByValueProperty& operator=(WriteonlyByValueProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
+	// access with function call syntax
+	Owner& operator()(Type value) {
+		(owner->*setter)(value);
+		return owner;
 	}
 
-	// function call syntax
-	void operator()(Type value) {
-		return (object->*real_setter)(value);
-	}
-
-	// get/set syntax
+	// access with get()/set() syntax
 	void set(Type value) {
-		return (object->*real_setter)(value);
+		(owner->*setter)(value);
 	}
 
-	// access with '=' sign
+	// assignment
 	void operator=(Type value) {
-		return (object->*real_setter)(value);
+		(owner->*setter)(value);
 	}
-
-	// might be useful for template deductions
-	typedef Type type;
 
 };
 
-// a read-write property that invokes user-defined functions, returning and passing by value
+// a read-write property that invokes user-defined accessors, returning and passing by value
 // usage:
-// UnrestrictedValueProperty<std::string, OwnerClass, &OwnerClass::get_name, &OwnerClass::set_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object, Type(Object::*real_getter)() const, Type(Object::*real_setter)(Type)>
-class UnrestrictedValueProperty : base::ReadableProperty, base::WritableProperty {
-
-	Object* object;
+// in public section of some class (e.g. "Entity"): "ByValueProperty<unsigned, Entity, &Entity::get_id, &Entity::set_id> id;"
+// (has to be initialized with an owner, usually in the constructor using "id.owner = this;")
+template <class Type, class Owner, Type(Owner::*getter)() const, void(Owner::*setter)(Type)>
+class ByValueProperty : public ReadonlyByValueProperty<Type, Owner, getter>, public WriteonlyByValueProperty<Type, Owner, setter> {
 
 public:
 
-	UnrestrictedValueProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	ByValueProperty() : BaseProperty<Type, Owner>() {}
 
-	UnrestrictedValueProperty(const UnrestrictedValueProperty&) = delete;
-	UnrestrictedValueProperty(UnrestrictedValueProperty&&) = delete;
+	ByValueProperty(const ByValueProperty& other) {}
+	ByValueProperty(ByValueProperty&& other) {}
 
-	UnrestrictedValueProperty& operator=(const UnrestrictedValueProperty&) = delete;
-	UnrestrictedValueProperty& operator=(UnrestrictedValueProperty&&) = delete;
+	ByValueProperty& operator=(const ByValueProperty& other) { return *this; }
+	ByValueProperty& operator=(ByValueProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
-	}
+	using ReadonlyByValueProperty<Type, Owner, getter>::operator();
+	using WriteonlyByValueProperty<Type, Owner, setter>::operator();
 
-	// function call syntax
-	Type operator()() const {
-		return (object->*real_getter)();
-	}
-	Type operator()(Type value) {
-		return (object->*real_setter)(value);
-	}
-
-	// get/set syntax
-	Type get() const {
-		return (object->*real_getter)();
-	}
-	Type set(Type value) {
-		return (object->*real_setter)(value);
-	}
-
-	// access with '=' sign
-	operator Type() const {
-		return (object->*real_getter)();
-	}
+	// assignment
 	Type operator=(Type value) {
-		return (object->*real_setter)(value);
+		(owner->*setter)(value);
+		return get();
 	}
 
-	// comparators
-	bool operator==(Type value) const {
-		return get() == value;
+	// manipulation
+	Type operator+=(const Type& value) {
+		set(get() + value);
+		return get();
 	}
-	bool operator!=(Type value) const {
-		return not operator==(value);
+	Type operator-=(const Type& value) {
+		set(get() - value);
+		return get();
 	}
-
-	// might be useful for template deductions
-	typedef Type type;
+	Type operator*=(const Type& value) {
+		set(get() * value);
+		return get();
+	}
+	Type operator/=(const Type& value) {
+		set(get() / value);
+		return get();
+	}
 
 };
 
-// a read-only property calling a user-defined getter, returning by reference and passing by perfect-forwarding
-// usage:
-// ReadonlyReferenceProperty<std::string, OwnerClass, &OwnerClass::get_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <typename Type, typename Object, const Type&(Object::*real_getter)() const>
-class ReadonlyReferenceProperty : base::ReadableProperty {
+// ==================================================================================================
+// Properties passing by reference
+// ==================================================================================================
 
-	Object* object;
+// a read-only property calling a user-defined getter, returning by reference
+// usage:
+// in public section of some class (e.g. "Entity"): "ReadonlyByReferenceProperty<std::string, Entity, &Entity::get_name> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner, const Type&(Owner::*getter)() const>
+class ReadonlyByReferenceProperty : Readable, public virtual BaseProperty<Type, Owner> {
 
 public:
 
-	ReadonlyReferenceProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	ReadonlyByReferenceProperty() : BaseProperty<Type, Owner>() {}
 
-	ReadonlyReferenceProperty(const ReadonlyReferenceProperty&) = delete;
-	ReadonlyReferenceProperty(ReadonlyReferenceProperty&&) = delete;
+	ReadonlyByReferenceProperty(const ReadonlyByReferenceProperty& other) {}
+	ReadonlyByReferenceProperty(ReadonlyByReferenceProperty&& other) {}
 
-	ReadonlyReferenceProperty& operator=(const ReadonlyReferenceProperty&) = delete;
-	ReadonlyReferenceProperty& operator=(ReadonlyReferenceProperty&&) = delete;
+	ReadonlyByReferenceProperty& operator=(const ReadonlyByReferenceProperty& other) { return *this; }
+	ReadonlyByReferenceProperty& operator=(ReadonlyByReferenceProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
-	}
-
-	// function call syntax
+	// access with function call syntax
 	const Type& operator()() const {
-		return (object->*real_getter)();
+		return get();
+	}
+	Type& operator()() {
+		return get();
 	}
 
-	// get/set syntax
+	// access with get()/set() syntax
 	const Type& get() const {
-		return (object->*real_getter)();
+		return (owner->*getter)();
+	}
+	Type& get() {
+		return const_cast<Type&>((owner->*getter)());
 	}
 
-	// access with '=' sign
+	// conversion
 	operator const Type&() const {
-		return (object->*real_getter)();
+		return get();
+	}
+	operator Type&() {
+		return get();
 	}
 
-	// comparators
+	// comparation
 	bool operator==(const Type& value) const {
 		return get() == value;
 	}
@@ -497,164 +597,149 @@ public:
 		return not operator==(value);
 	}
 
-	// might be useful for template deductions
-	typedef Type type;
-
 };
 
-// a write-only property calling a user-defined setter, passing by perfect-forwarding
+// a write-only property calling a user-defined setter, passing by reference
 // usage:
-// WriteonlyReferenceProperty<std::string, OwnerClass, &OwnerClass::set_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object, void(Object::*real_setter)(Assignment<Type>)>
-class WriteonlyReferenceProperty : base::WritableProperty {
-
-	Object* object;
+// in public section of some class (e.g. "Entity"): "WriteonlyByReferenceProperty<std::string, Entity, &Entity::set_name> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner, void(Owner::*setter)(Assignment<Type>)>
+class WriteonlyByReferenceProperty : Writable, public virtual BaseProperty<Type, Owner> {
 
 public:
 
-	WriteonlyReferenceProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	WriteonlyByReferenceProperty() : BaseProperty<Type, Owner>() {}
 
-	WriteonlyReferenceProperty(const WriteonlyReferenceProperty&) = delete;
-	WriteonlyReferenceProperty(WriteonlyReferenceProperty&&) = delete;
+	WriteonlyByReferenceProperty(const WriteonlyByReferenceProperty& other) {}
+	WriteonlyByReferenceProperty(WriteonlyByReferenceProperty&& other) {}
 
-	WriteonlyReferenceProperty& operator=(const WriteonlyReferenceProperty&) = delete;
-	WriteonlyReferenceProperty& operator=(WriteonlyReferenceProperty&&) = delete;
+	WriteonlyByReferenceProperty& operator=(const WriteonlyByReferenceProperty& other) { return *this; }
+	WriteonlyByReferenceProperty& operator=(WriteonlyByReferenceProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
+	// access with function call syntax
+	Owner& operator()(const Type& value) {
+		set(value);
+		return owner;
+	}
+	Owner& operator()(Type&& value) {
+		set(std::move(value));
+		return owner;
 	}
 
-	// function call syntax
-	void operator()(const Type& value) {
-		(object->*real_setter)(value);
-	}
-	void operator()(Type&& value) {
-		(object->*real_setter)(std::move(value));
-	}
-
-	// get/set syntax
+	// access with get()/set() syntax
 	void set(const Type& value) {
-		(object->*real_setter)(value);
+		(owner->*setter)(value);
 	}
 	void set(Type&& value) {
-		(object->*real_setter)(std::move(value));
+		(owner->*setter)(std::move(value));
 	}
 
-	// access with '=' sign
+	// assignment
 	void operator=(const Type& value) {
-		(object->*real_setter)(value);
+		set(value);
 	}
 	void operator=(Type&& value) {
-		(object->*real_setter)(std::move(value));
+		set(std::move(value));
 	}
-
-	// might be useful for template deductions
-	typedef Type type;
 
 };
 
-// a read-write property that invokes user-defined functions, returning by reference and passing by perfect-forwarding
+// a read-write property that invokes user-defined functions, returning by reference
 // usage:
-// UnrestrictedReferenceProperty<std::string, OwnerClass, &OwnerClass::get_name, &OwnerClass::set_name> name;
-// (has to be initialized with an owner, for example in constructor using "name._property_owner(this)")
-template <class Type, class Object, const Type&(Object::*real_getter)() const, const Type&(Object::*real_setter)(Assignment<Type>)>
-class UnrestrictedReferenceProperty : base::ReadableProperty, base::WritableProperty {
-
-	Object* object;
+// in public section of some class (e.g. "Entity"): "ByReferenceProperty<std::string, Entity, &Entity::get_name, &Entity::set_name> name;"
+// (has to be initialized with an owner, usually in the constructor using "name.owner = this;")
+template <class Type, class Owner, const Type&(Owner::*getter)() const, void(Owner::*setter)(Assignment<Type>)>
+class ByReferenceProperty : public ReadonlyByReferenceProperty<Type, Owner, getter>, public WriteonlyByReferenceProperty<Type, Owner, setter> {
 
 public:
 
-	UnrestrictedReferenceProperty(Object* owner_object = nullptr) : object(owner_object) {}
+	ByReferenceProperty() : BaseProperty<Type, Owner>() {}
 
-	UnrestrictedReferenceProperty(const UnrestrictedReferenceProperty&) = delete;
-	UnrestrictedReferenceProperty(UnrestrictedReferenceProperty&&) = delete;
+	ByReferenceProperty(const ByReferenceProperty& other) {}
+	ByReferenceProperty(ByReferenceProperty&& other) {}
 
-	UnrestrictedReferenceProperty& operator=(const UnrestrictedReferenceProperty&) = delete;
-	UnrestrictedReferenceProperty& operator=(UnrestrictedReferenceProperty&&) = delete;
+	ByReferenceProperty& operator=(const ByReferenceProperty& other) { return *this; }
+	ByReferenceProperty& operator=(ByReferenceProperty&& other) { return *this; }
 
-	// initializer to specify the owner
-	void _property_owner(Object* owner_object) {
-		runtime_assert(object == nullptr, "property has already been initialized");
-		runtime_assert(owner_object != nullptr, "owner_object must not be null");
-		this->object = owner_object;
+	using ReadonlyByReferenceProperty<Type, Owner, getter>::operator();
+	using WriteonlyByReferenceProperty<Type, Owner, setter>::operator();
+
+	// assignment
+	Type& operator=(const Type& value) {
+		(owner->*setter)(value);
+		return get();
 	}
-
-	// function call syntax
-	const Type& operator()() const {
-		return (object->*real_getter)();
-	}
-	const Type& operator()(const Type& value) {
-		return (object->*real_setter)(value);
-	}
-	const Type& operator()(Type&& value) {
-		return (object->*real_setter)(std::move(value));
+	Type& operator=(Type&& value) {
+		(owner->*setter)(std::move(value));
+		return get();
 	}
 
-	// get/set syntax
-	const Type& get() const {
-		return (object->*real_getter)();
+	// manipulation
+	Type& operator+=(const Type& value) {
+		set(get() + value);
+		return get();
 	}
-	const Type& set(const Type& value) {
-		return (object->*real_setter)(value);
+	Type& operator+=(Type&& value) {
+		set(get() + std::move(value));
+		return get();
 	}
-	const Type& set(Type&& value) {
-		return (object->*real_setter)(std::move(value));
+	Type& operator-=(const Type& value) {
+		set(get() - value);
+		return get();
 	}
-
-	// access with '=' sign
-	operator const Type&() const {
-		return (object->*real_getter)();
+	Type& operator-=(Type&& value) {
+		set(get() - std::move(value));
+		return get();
 	}
-	const Type& operator=(const Type& value) {
-		return (object->*real_setter)(value);
+	Type& operator*=(const Type& value) {
+		set(get() * value);
+		return get();
 	}
-	const Type& operator=(Type&& value) {
-		return (object->*real_setter)(std::move(value));
+	Type& operator*=(Type&& value) {
+		set(get() * std::move(value));
+		return get();
 	}
-
-	// comparators
-	bool operator==(const Type& value) const {
-		return get() == value;
+	Type& operator/=(const Type& value) {
+		set(get() / value);
+		return get();
 	}
-	bool operator!=(const Type& value) const {
-		return not operator==(value);
+	Type& operator/=(Type&& value) {
+		set(get() / std::move(value));
+		return get();
 	}
-
-	// might be useful for template deductions
-	typedef Type type;
 
 };
 
+// ==================================================================================================
+// Common property operators
+// ==================================================================================================
+
 // output stream operator<<
-template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+template <class PropertyType, typename std::enable_if<std::is_base_of<Readable, PropertyType>::value>::type* = nullptr>
 std::ostream& operator<<(std::ostream& output, const PropertyType& property) {
 	return output << property.get();
 }
 
 // string concatenation (string + property)
-template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+template <class PropertyType, typename std::enable_if<std::is_base_of<Readable, PropertyType>::value>::type* = nullptr>
 std::string operator+(const std::string& text, const PropertyType& property) {
 	return text + to_string(property.get());
 }
 
 // string concatenation (property + string)
-template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+template <class PropertyType, typename std::enable_if<std::is_base_of<Readable, PropertyType>::value>::type* = nullptr>
 std::string operator+(const PropertyType& property, const std::string& text) {
 	return to_string(property.get()) + text;
 }
 
 // string concatenation (characters + property)
-template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+template <class PropertyType, typename std::enable_if<std::is_base_of<Readable, PropertyType>::value>::type* = nullptr>
 std::string operator+(const char* text, const PropertyType& property) {
 	return string(text) + to_string(property.get());
 }
 
 // string concatenation (property + characters)
-template <class PropertyType, typename std::enable_if<std::is_base_of<base::ReadableProperty, PropertyType>::value>::type* = nullptr>
+template <class PropertyType, typename std::enable_if<std::is_base_of<Readable, PropertyType>::value>::type* = nullptr>
 std::string operator+(const PropertyType& property, const char* text) {
 	return to_string(property.get()) + string(text);
 }
