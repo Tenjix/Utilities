@@ -5,6 +5,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <utilities/Assertions.h>
 #include <utilities/Logging.h>
@@ -185,6 +186,16 @@ public:
 template <class Type, class Owner>
 class WriteonlyProperty : Writable, public virtual DataProperty<Type, Owner> {
 
+	std::vector<std::function<void()>> observers;
+
+protected:
+
+	void notify() {
+		for (auto& observer : observers) {
+			observer();
+		}
+	}
+
 public:
 
 	WriteonlyProperty() : DataProperty<Type, Owner>() {}
@@ -200,42 +211,65 @@ public:
 
 	// access with function call syntax
 	Owner& operator()(const Type& value) {
-		this->value = value;
+		set(value);
 		return owner;
 	}
 	Owner& operator()(Type&& value) {
-		this->value = std::move(value);
+		set(std::move(value));
 		return owner;
 	}
 
 	// access with get()/set() syntax
 	void set(const Type& value) {
 		this->value = value;
+		notify();
 	}
 	void set(Type&& value) {
 		this->value = std::move(value);
+		notify();
 	}
 
 	// assignment
 	void operator=(const Type& value) {
-		this->value = value;
+		set(value);
 	}
 	void operator=(Type&& value) {
-		this->value = std::move(value);
+		set(std::move(value));
 	}
 
 	// manipulation
 	void operator+=(const Type& value) {
 		this->value += value;
+		notify();
 	}
 	void operator-=(const Type& value) {
 		this->value -= value;
+		notify();
 	}
 	void operator*=(const Type& value) {
 		this->value *= value;
+		notify();
 	}
 	void operator/=(const Type& value) {
 		this->value /= value;
+		notify();
+	}
+
+	// attaches an observer to the proeprty, returning its index
+	uint attach(const std::function<void()>& observer) {
+		uint index = observers.size();
+		observers.push_back(observer);
+		return index;
+	}
+
+	// removes an observer from the property, by its index
+	void detach(uint observer_index) {
+		if (observer_index < observers.size) observers.erase(observers.begin() + observer_index);
+	}
+
+	// removes all observers from the property
+	void detach_all() {
+		observers.clear();
 	}
 
 };
@@ -265,24 +299,36 @@ public:
 
 	// assignment
 	Type& operator=(const Type& value) {
-		return this->value = value;
+		this->value = value;
+		notify();
+		return this->value;
 	}
 	Type& operator=(Type&& value) {
-		return this->value = std::move(value);
+		this->value = std::move(value);
+		notify();
+		return this->value;
 	}
 
 	// manipulation
 	Type& operator+=(const Type& value) {
-		return this->value += value;
+		this->value += value;
+		notify();
+		return this->value;
 	}
 	Type& operator-=(const Type& value) {
-		return this->value -= value;
+		this->value -= value;
+		notify();
+		return this->value;
 	}
 	Type& operator*=(const Type& value) {
-		return this->value *= value;
+		this->value *= value;
+		notify();
+		return this->value;
 	}
 	Type& operator/=(const Type& value) {
-		return this->value /= value;
+		this->value /= value;
+		notify();
+		return this->value;
 	}
 
 };
@@ -313,11 +359,12 @@ public:
 
 	using Property<shared<Type>, Owner>::operator=;
 
-	// returns address of the shared value
-	const Type* address() const {
+	// returns a raw pointer to the shared value
+	const Type* pointer() const {
 		return value.get();
 	}
-	Type* address() {
+	// returns a raw pointer to the shared value
+	Type* pointer() {
 		return value.get();
 	}
 
@@ -333,6 +380,14 @@ public:
 	}
 	Type& operator*() {
 		return *value;
+	}
+
+	// comparation
+	bool operator==(const Type* pointer) const {
+		return value.get() == pointer;
+	}
+	bool operator!=(const Type* pointer) const {
+		return not operator==(pointer);
 	}
 
 	// conversion
