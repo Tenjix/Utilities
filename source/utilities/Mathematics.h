@@ -3,13 +3,33 @@
 #include <cmath>
 
 // define important constants
-constexpr double Pi = 3.14159265358979323846;
-constexpr double Pi_Inverse = 0.318309886183790671538;
-constexpr double Pi_Half = 1.57079632679489661923;
-constexpr double Sqrt_2 = 1.41421356237309504880;
-constexpr double Sqrt_2_Inverse = 0.707106781186547524401;
-constexpr double Sqrt_3 = 1.73205080756887729353;
-constexpr double Sqrt_3_Inverse = 0.577350269189625764509;
+namespace double_constants {
+	constexpr double Tau = 6.28318530717958647693;
+	constexpr double Tau_Inverse = 1.0 / Tau;
+	constexpr double Tau_Half = Tau / 2.0;
+	constexpr double Pi = Tau_Half;
+	constexpr double Pi_Inverse = 1.0 / Pi;
+	constexpr double Pi_Half = Pi / 2.0;
+	constexpr double Sqrt_2 = 1.41421356237309504880;
+	constexpr double Sqrt_2_Inverse = 1.0 / Sqrt_2;
+	constexpr double Sqrt_3 = 1.73205080756887729353;
+	constexpr double Sqrt_3_Inverse = 1.0 / Sqrt_3;
+}
+namespace constd = double_constants;
+
+namespace float_constants {
+	constexpr float Tau = 6.28318530717958647693f;
+	constexpr float Tau_Inverse = 1.0f / Tau;
+	constexpr float Tau_Half = Tau / 2.0f;
+	constexpr float Pi = Tau_Half;
+	constexpr float Pi_Inverse = 1.0f / Pi;
+	constexpr float Pi_Half = Pi / 2.0f;
+	constexpr float Sqrt_2 = 1.41421356237309504880f;
+	constexpr float Sqrt_2_Inverse = 1.0f / Sqrt_2;
+	constexpr float Sqrt_3 = 1.73205080756887729353f;
+	constexpr float Sqrt_3_Inverse = 1.0f / Sqrt_3;
+}
+namespace constf = float_constants;
 
 template <typename Type>
 struct Range {
@@ -34,11 +54,11 @@ struct Range {
 
 // returns the maximum of two given values using the ">" operator
 template <typename Type>
-inline const Type& max(const Type& a, const Type& b) { return a > b ? a : b; }
+inline const Type& maximum(const Type& a, const Type& b) { return a > b ? a : b; }
 
 // returns the minimum of two given values using the "<" operator
 template <typename Type>
-inline const Type& min(const Type& a, const Type& b) { return a < b ? a : b; }
+inline const Type& minimum(const Type& a, const Type& b) { return a < b ? a : b; }
 
 // determines whether "value" is even using the "%" operator
 template <typename Type>
