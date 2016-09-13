@@ -14,6 +14,8 @@ namespace double_constants {
 	constexpr double Sqrt_2_Inverse = 1.0 / Sqrt_2;
 	constexpr double Sqrt_3 = 1.73205080756887729353;
 	constexpr double Sqrt_3_Inverse = 1.0 / Sqrt_3;
+	constexpr double One_Third = 1.0 / 3.0;
+	constexpr double Two_Thirds = 2.0 / 3.0;
 }
 namespace constd = double_constants;
 
@@ -28,6 +30,8 @@ namespace float_constants {
 	constexpr float Sqrt_2_Inverse = 1.0f / Sqrt_2;
 	constexpr float Sqrt_3 = 1.73205080756887729353f;
 	constexpr float Sqrt_3_Inverse = 1.0f / Sqrt_3;
+	constexpr float One_Third = 1.0f / 3.0f;
+	constexpr float Two_Thirds = 2.0f / 3.0f;
 }
 namespace constf = float_constants;
 
@@ -85,4 +89,19 @@ inline int project(int value, const int range_begin, const int range_end) {
 	int range_size = (range_end + 1) - range_begin;
 	if (value < range_begin) value += range_size * ((range_begin - value) / range_size + 1);
 	return range_begin + (value - range_begin) % range_size;
+}
+
+// rounds "value" to the nearest multiple of 1/"n"
+inline float round(float value, int n) {
+	return round(value * n) / n;
+}
+
+// rounds "value" down to the nearest multiple of 1/"n"
+inline float floor(float value, int n) {
+	return floor(value * n) / n;
+}
+
+// rounds "value" up to the nearest multiple of 1/"n"
+inline float ceil(float value, int n) {
+	return ceil(value * n) / n;
 }
