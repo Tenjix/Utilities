@@ -9,7 +9,7 @@
 template <typename Type>
 class Optional {
 
-	shared<Type> _value;
+	const shared<Type> _value;
 
 public:
 
@@ -48,6 +48,10 @@ public:
 
 	operator Type&() const {
 		return value();
+	}
+
+	Type* operator->() const {
+		return &value();
 	}
 
 };

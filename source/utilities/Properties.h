@@ -391,6 +391,12 @@ public:
 	}
 
 	// conversion
+	operator const Type&() const {
+		return *value;
+	}
+	operator Type&() {
+		return *value;
+	}
 	operator bool() const {
 		return value != nullptr;
 	}

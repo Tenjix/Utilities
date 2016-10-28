@@ -40,6 +40,12 @@ using unique = std::unique_ptr<Type>;
 template <typename Type, uint N>
 uint size_of(const Type(&array)[N]) { return N; }
 
+// determines the bytesize of the content of a vector
+template<typename Type>
+size_t size_of(const typename std::vector<Type>& vec) {
+	return sizeof(Type) * vec.size();
+}
+
 // calculates a combined hash for multiple hashable objects/values
 template <typename... Types>
 inline std::size_t hash_combined(Types... hashable) {
