@@ -5,9 +5,9 @@
 
 #include <utilities/Strings.h>
 
-//#define _ASSERTIONS_DISABLED // to disable assertions
+//#define _RUNTIME_ASSERTIONS_DISABLED // to disable assertions
 
-#if defined(_ASSERTIONS_DISABLED)
+#if defined(_RUNTIME_ASSERTIONS_DISABLED)
 #	define runtime_assert(condition, ...) static_cast<void>(condition)
 #else
 #	define runtime_assert(condition, ...) \

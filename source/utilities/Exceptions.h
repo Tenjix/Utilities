@@ -5,15 +5,19 @@
 #include <utilities/Logging.h>
 #include <utilities/Strings.h>
 
-#define throw_runtime_exception(...) { error(__VA_ARGS__); throw RuntimeException(__VA_ARGS__); }
+namespace tenjix {
 
-class RuntimeException : public std::exception {
+	#define throw_runtime_exception(...) { error(__VA_ARGS__); throw RuntimeException(__VA_ARGS__); }
 
-public:
+	class RuntimeException : public std::exception {
 
-	template <typename... Arguments>
-	explicit RuntimeException(Arguments&&... arguments) : std::exception(stringify(std::forward<Arguments>(arguments)...).c_str()) {}
+	public:
 
-	virtual ~RuntimeException() = default;
+		template <typename... Arguments>
+		explicit RuntimeException(Arguments&&... arguments) : std::exception(stringify(std::forward<Arguments>(arguments)...).c_str()) {}
 
-};
+		virtual ~RuntimeException() = default;
+
+	};
+
+}
