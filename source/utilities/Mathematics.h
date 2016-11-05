@@ -11,8 +11,12 @@ namespace tenjix {
 		constexpr double Tau_Inverse = 1.0 / Tau;
 		constexpr double Tau_Half = Tau / 2.0;
 		constexpr double Tau_Half_Inverse = 1.0 / Tau_Half;
+		constexpr double Tau_Thrid = Tau / 3.0;
+		constexpr double Tau_Third_Inverse = 1.0 / Tau_Thrid;
 		constexpr double Tau_Quarter = Tau / 4.0;
 		constexpr double Tau_Quarter_Inverse = 1.0 / Tau_Quarter;
+		constexpr double Tau_Sixth = Tau / 6.0;
+		constexpr double Tau_Sixth_Inverse = 1.0 / Tau_Sixth;
 		constexpr double Two_Pi = Tau;
 		constexpr double Two_Pi_Inverse = Tau_Inverse;
 		// circle circumference to diameter ratio
@@ -24,7 +28,7 @@ namespace tenjix {
 		constexpr double Sqrt_2_Inverse = 1.0 / Sqrt_2;
 		constexpr double Sqrt_3 = 1.73205080756887729353;
 		constexpr double Sqrt_3_Inverse = 1.0 / Sqrt_3;
-		constexpr double Sqrt_5 = 2.23606797749978969641f;
+		constexpr double Sqrt_5 = 2.23606797749978969641;
 		constexpr double Sqrt_5_Inverse = 1.0 / Sqrt_5;
 		constexpr double One_Third = 1.0 / 3.0;
 		constexpr double Two_Thirds = 2.0 / 3.0;
@@ -41,8 +45,12 @@ namespace tenjix {
 		constexpr float Tau_Inverse = 1.0f / Tau;
 		constexpr float Tau_Half = Tau / 2.0f;
 		constexpr float Tau_Half_Inverse = 1.0f / Tau_Half;
+		constexpr float Tau_Thrid = Tau / 3.0f;
+		constexpr float Tau_Third_Inverse = 1.0f / Tau_Thrid;
 		constexpr float Tau_Quarter = Tau / 4.0f;
 		constexpr float Tau_Quarter_Inverse = 1.0f / Tau_Quarter;
+		constexpr float Tau_Sixth = Tau / 6.0f;
+		constexpr float Tau_Sixth_Inverse = 1.0f / Tau_Sixth;
 		constexpr float Two_Pi = Tau;
 		constexpr float Two_Pi_Inverse = Tau_Inverse;
 		// circle circumference to diameter ratio
@@ -64,6 +72,11 @@ namespace tenjix {
 		constexpr float G = (1.0f + Sqrt_5) / 2.0f;
 	}
 	namespace f = float_constants;
+
+	// enumeration of coordinate system handedness
+	enum class Handedness { Right, Left };
+	// enumeration of rotation directions
+	enum class Rotating { Clockwise, Anitclockwise };
 
 	template <typename Type>
 	struct Range {
@@ -96,22 +109,22 @@ namespace tenjix {
 
 	// determines whether "value" is even using the "%" operator
 	template <typename Type>
-	bool even(const Type& value) { return value % 2 == 0; }
+	bool is_even(const Type& value) { return value % 2 == 0; }
 
 	// determines whether "value" is odd using the "%" operator
 	template <typename Type>
-	bool odd(const Type& value) { return value % 2 != 0; }
+	bool is_odd(const Type& value) { return value % 2 != 0; }
 
 	// determines whether "value" is within the range "range_begin" to "range_end", including limits by default
 	template <typename Type>
-	bool within(const Type& value, const Type& range_begin, const Type& range_end, bool including_limits = true) {
+	bool is_within(const Type& value, const Type& range_begin, const Type& range_end, bool including_limits = true) {
 		if (including_limits) return range_begin <= value and value <= range_end;
 		return range_begin < value and value < range_end;
 	}
 
 	// calculates the signum function (negative => -1, zero => 0, positive => +1)
 	template <typename Type>
-	int signum(Type value) {
+	int sign(Type value) {
 		return (Type(0) < value) - (value < Type(0));
 	}
 
