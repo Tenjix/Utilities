@@ -11,6 +11,8 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <utilities/Optional.h>
+
 // redefine c++ keywords that are not recognized when using certain language extensions
 #define and &&
 #define or ||
@@ -41,6 +43,8 @@ namespace tenjix {
 	using shared = std::shared_ptr<Type>;
 	template <class Type>
 	using unique = std::unique_ptr<Type>;
+
+	using std::optional;
 
 	template <class Type>
 	using Function = std::function<Type>;
