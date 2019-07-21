@@ -2,30 +2,34 @@
 
 #include <iostream>
 
-#include <Utilities/Types.h>
+#include <utilities/Types.h>
 
-// Type Filter
-struct TypeFilter {
+namespace tenjix {
 
-	Types required_types;
-	Types excluded_types;
+	// Type Filter
+	struct TypeFilter {
 
-	TypeFilter() {}
+		Types required_types;
+		Types excluded_types;
 
-	TypeFilter(Types requires, Types excludes = Types()) : required_types(requires), excluded_types(excludes) {}
+		TypeFilter() {}
 
-	template <typename... TYPES>
-	bool accepts() const {
-		return accepts(Types<TYPES...>());
-	}
+		TypeFilter(Types requires, Types excludes = Types()) : required_types(requires), excluded_types(excludes) {}
 
-	bool accepts(const Types& types) const {
-		if (not excluded_types.empty() && types.contain(excluded_types)) return false;
-		return types.contain(required_types);
-	}
+		template <typename... TYPES>
+		bool accepts() const {
+			return accepts(Types<TYPES...>());
+		}
 
-	friend std::ostream& operator<<(std::ostream& output, const TypeFilter& filter) {
-		return (output << "requires<" << filter.required_types << ">, excludes<" << filter.excluded_types << ">");
-	}
+		bool accepts(const Types& types) const {
+			if (not excluded_types.empty() && types.contain(excluded_types)) return false;
+			return types.contain(required_types);
+		}
 
-};
+		friend std::ostream& operator<<(std::ostream& output, const TypeFilter& filter) {
+			return (output << "requires<" << filter.required_types << ">, excludes<" << filter.excluded_types << ">");
+		}
+
+	};
+
+}

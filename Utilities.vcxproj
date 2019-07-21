@@ -23,6 +23,7 @@
     <ClInclude Include="source\utilities\Assertions.h" />
     <ClInclude Include="source\utilities\Exceptions.h" />
     <ClInclude Include="source\utilities\Logging.h" />
+    <ClInclude Include="source\utilities\Mathematics.h" />
     <ClInclude Include="source\utilities\Optional.h" />
     <ClInclude Include="source\utilities\Parsing.h" />
     <ClInclude Include="source\utilities\Properties.h" />
